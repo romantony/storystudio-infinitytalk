@@ -1,0 +1,124 @@
+# Base Docker Image for StoryStudio Models
+# This provides common dependencies for all AI model deployments
+
+FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04 as runtime
+
+# Metadata
+LABEL maintainer="StoryStudio Team"
+LABEL description="Base image for RunPod Serverless AI models"
+
+# Remove any third-party apt sources
+RUN rm -f /etc/apt/sources.list.d/*.list
+
+# Set shell and environment variables
+SHELL ["/bin/bash", "-c"]
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV SHELL=/bin/bash
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH="/usr/local/cuda/bin:${PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
+
+# Set working directory
+WORKDIR /
+
+# Update system and install common dependencies
+RUN apt-get update --yes && \
+    apt-get upgrade --yes && \
+    apt install --yes --no-install-recommends \
+    git \
+    wget \
+    curl \
+    bash \
+    libgl1 \
+    software-properties-common \
+    openssh-server \
+    nginx \
+    rsync \
+    ffmpeg \
+    build-essential \
+    ca-certificates && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python 3.10
+RUN add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update --yes && \
+    apt-get install --yes --no-install-recommends \
+    python3.10 \
+    python3.10-dev \
+    python3.10-distutils \
+    python3-pip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Update alternatives to make python3.10 the default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Install PyTorch and common ML libraries
+RUN pip install --no-cache-dir \
+    torch==2.1.2 \
+    torchvision==0.16.2 \
+    torchaudio==2.1.2 \
+    xformers==0.0.23.post1 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# Install common Python packages
+RUN pip install --no-cache-dir \
+    numpy \
+    opencv-python-headless \
+    pillow \
+    scipy \
+    scikit-image \
+    matplotlib \
+    tqdm \
+    psutil \
+    packaging \
+    pyyaml \
+    requests \
+    websocket-client \
+    boto3 \
+    librosa \
+    soundfile \
+    runpod
+
+# Install ComfyUI
+WORKDIR /
+RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
+    cd /ComfyUI && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Create necessary directories
+RUN mkdir -p \
+    /ComfyUI/models/checkpoints \
+    /ComfyUI/models/vae \
+    /ComfyUI/models/loras \
+    /ComfyUI/models/embeddings \
+    /ComfyUI/models/upscale_models \
+    /ComfyUI/models/clip \
+    /ComfyUI/models/clip_vision \
+    /ComfyUI/models/diffusion_models \
+    /ComfyUI/models/text_encoders \
+    /ComfyUI/custom_nodes \
+    /ComfyUI/input \
+    /ComfyUI/output \
+    /workflows \
+    /base \
+    /examples
+
+# Copy base utilities
+COPY base/utils/ /base/utils/
+
+# Set working directory
+WORKDIR /
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8188/ || exit 1
+
+# Default command (to be overridden by model-specific images)
+CMD ["python", "-c", "print('Base image ready. Please use a model-specific image.')"]
