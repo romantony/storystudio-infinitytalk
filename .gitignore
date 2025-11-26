@@ -49,6 +49,10 @@ logs/
 task_*/
 *.tmp
 
+# Test files with credentials
+test_endpoint.py
+QUICK_TEST.md
+
 # Model weights (too large for git)
 *.safetensors
 *.ckpt
