@@ -84,7 +84,7 @@ class R2Storage:
         # Generate object key if not provided
         if object_key is None:
             filename = os.path.basename(file_path)
-            object_key = f"output/{filename}"
+            object_key = f"runpod/output/{filename}"
         
         # Auto-detect content type
         if content_type is None:

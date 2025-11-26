@@ -149,7 +149,7 @@ class BaseHandler(ABC):
             logger.info("Uploading to R2 storage...")
             result = self.r2_client.upload_file_with_metadata(
                 output_path,
-                prefix=f"{self.model_name}/output",
+                prefix=f"runpod/{self.model_name}/output",
                 extra_metadata={
                     "model": self.model_name,
                     "task_id": os.path.basename(temp_dir)
