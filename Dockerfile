@@ -60,6 +60,9 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 &
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
+# Install NumPy 1.x first (required for PyTorch compatibility)
+RUN pip install --no-cache-dir "numpy<2.0.0"
+
 # Install PyTorch and common ML libraries
 RUN pip install --no-cache-dir \
     torch==2.1.2 \
@@ -68,9 +71,8 @@ RUN pip install --no-cache-dir \
     xformers==0.0.23.post1 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# Install common Python packages (pin numpy<2 for compatibility)
+# Install common Python packages
 RUN pip install --no-cache-dir \
-    "numpy<2" \
     opencv-python-headless \
     pillow \
     scipy \
@@ -176,6 +178,9 @@ RUN wget https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/mai
 
 RUN wget https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBandRoformer_fp16.safetensors \
     -O /ComfyUI/models/diffusion_models/MelBandRoformer_fp16.safetensors
+
+# Force NumPy 1.x after all installations (CRITICAL for PyTorch 2.1.2 compatibility)
+RUN pip install --force-reinstall --no-cache-dir "numpy<2.0.0"
 
 # Copy workflow files
 COPY models/infinitetalk/workflows/ /workflows/
