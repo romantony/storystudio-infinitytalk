@@ -68,9 +68,9 @@ RUN pip install --no-cache-dir \
     xformers==0.0.23.post1 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# Install common Python packages
+# Install common Python packages (pin numpy<2 for compatibility)
 RUN pip install --no-cache-dir \
-    numpy \
+    "numpy<2" \
     opencv-python-headless \
     pillow \
     scipy \
@@ -86,6 +86,9 @@ RUN pip install --no-cache-dir \
     librosa \
     soundfile \
     runpod
+
+# Pin transformers to compatible version with PyTorch 2.1.2
+RUN pip install --no-cache-dir "transformers<4.44.0"
 
 # Install ComfyUI
 WORKDIR /
