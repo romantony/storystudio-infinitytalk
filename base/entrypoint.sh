@@ -42,6 +42,11 @@ if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
     exit 1
 fi
 
+# Show ComfyUI custom node loading logs
+echo ""
+echo "ComfyUI Custom Nodes Loaded:"
+grep -E "Import times for custom nodes|seconds.*custom_nodes" /var/log/comfyui.log | head -20 || echo "No custom node loading info found"
+
 # Display environment info
 echo ""
 echo "Environment Configuration:"
