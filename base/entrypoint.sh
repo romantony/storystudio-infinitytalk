@@ -47,6 +47,13 @@ echo ""
 echo "ComfyUI Custom Nodes Loaded:"
 grep -E "Import times for custom nodes|seconds.*custom_nodes" /var/log/comfyui.log | head -20 || echo "No custom node loading info found"
 
+# If WanVideoWrapper failed to import, show the error
+if grep -q "IMPORT FAILED.*WanVideoWrapper" /var/log/comfyui.log; then
+    echo ""
+    echo "⚠️ WanVideoWrapper Import Error Detected:"
+    grep -A 20 "WanVideoWrapper" /var/log/comfyui.log | grep -A 15 "Traceback\|Error\|Exception" | head -30
+fi
+
 # Display environment info
 echo ""
 echo "Environment Configuration:"
