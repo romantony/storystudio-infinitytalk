@@ -89,14 +89,14 @@ RUN pip install --no-cache-dir \
     soundfile \
     runpod
 
-# Pin transformers to compatible version with PyTorch 2.1.2
-RUN pip install --no-cache-dir "transformers<4.44.0"
-
 # Install ComfyUI
 WORKDIR /
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd /ComfyUI && \
     pip install --no-cache-dir -r requirements.txt
+
+# Pin transformers to compatible version with PyTorch 2.1.2 (AFTER ComfyUI requirements)
+RUN pip install --no-cache-dir --force-reinstall "transformers<4.44.0"
 
 # Create necessary directories
 RUN mkdir -p \
