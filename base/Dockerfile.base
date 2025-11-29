@@ -1,7 +1,8 @@
 # Base Docker Image for StoryStudio Models
 # This provides common dependencies for all AI model deployments
+# Based on RunPod worker-comfyui configuration
 
-FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04 as runtime
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04
 
 # Metadata
 LABEL maintainer="StoryStudio Team"
@@ -14,9 +15,12 @@ RUN rm -f /etc/apt/sources.list.d/*.list
 SHELL ["/bin/bash", "-c"]
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+ENV PIP_PREFER_BINARY=1
+ENV PIP_NO_INPUT=1
+ENV CMAKE_BUILD_PARALLEL_LEVEL=8
 ENV SHELL=/bin/bash
 ENV CUDA_HOME=/usr/local/cuda
-ENV PATH="/usr/local/cuda/bin:${PATH}"
+ENV PATH="/opt/venv/bin:/usr/local/cuda/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}"
 
 # Set working directory
@@ -42,34 +46,37 @@ RUN apt-get update --yes && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python 3.10
-RUN add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update --yes && \
+# Install Python 3.12 (default in Ubuntu 24.04)
+RUN apt-get update --yes && \
     apt-get install --yes --no-install-recommends \
-    python3.10 \
-    python3.10-dev \
-    python3.10-distutils \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
     python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-# Update alternatives to make python3.10 the default
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
-    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+# Update alternatives to make python3.12 the default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+
+# Create virtual environment and activate it
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:${PATH}"
 
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
-# Install PyTorch and common ML libraries
+# Install PyTorch 2.9.1 and ML libraries (matching RunPod image)
 RUN pip install --no-cache-dir \
-    torch==2.1.2 \
-    torchvision==0.16.2 \
-    torchaudio==2.1.2 \
-    xformers==0.0.23.post1 \
-    --index-url https://download.pytorch.org/whl/cu121
+    torch==2.9.1 \
+    torchvision==0.24.1 \
+    torchaudio==2.9.1 \
+    xformers \
+    --index-url https://download.pytorch.org/whl/cu128
 
-# Install common Python packages
+# Install common Python packages with version constraints
 RUN pip install --no-cache-dir \
-    numpy \
+    "numpy<2.0" \
     opencv-python-headless \
     pillow \
     scipy \
@@ -84,7 +91,8 @@ RUN pip install --no-cache-dir \
     boto3 \
     librosa \
     soundfile \
-    runpod
+    runpod \
+    "transformers>=4.30.0"
 
 # Install ComfyUI
 WORKDIR /
@@ -110,8 +118,11 @@ RUN mkdir -p \
     /base \
     /examples
 
-# Copy base utilities
+# Copy base utilities and handler
 COPY base/utils/ /base/utils/
+COPY base/handler_base.py /base/handler_base.py
+COPY base/entrypoint.sh /base/entrypoint.sh
+RUN chmod +x /base/entrypoint.sh
 
 # Set working directory
 WORKDIR /

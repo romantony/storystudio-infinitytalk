@@ -66,6 +66,10 @@ RUN wget https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBand
 # Copy workflow files
 COPY workflows/ /workflows/
 
+# Copy base handler to the correct location (it should already be there from base image)
+# But let's ensure the Python path can find it
+RUN ln -s /base/handler_base.py /handler_base.py || true
+
 # Copy handler
 COPY handler.py /handler.py
 
@@ -73,11 +77,25 @@ COPY handler.py /handler.py
 COPY examples/ /examples/
 
 # Copy and set entrypoint
-COPY ../base/entrypoint.sh /entrypoint.sh
+COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+
+# RunPod-specific environment variables
+ENV RUNPOD_POD_ID=""
+ENV RUNPOD_API_KEY=""
+ENV RUNPOD_WEBHOOK_GET_JOB=""
+ENV RUNPOD_WEBHOOK_POST_OUTPUT=""
+
+# ComfyUI optimization for RunPod
+ENV COMFYUI_DISABLE_AUTO_UPDATE=true
+ENV COMFYUI_DISABLE_METADATA=true
 
 # Expose ComfyUI port (for local testing)
 EXPOSE 8188
+
+# Health check for RunPod
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+    CMD curl -f http://localhost:8188/ || exit 1
 
 # Set entrypoint
 ENTRYPOINT ["/entrypoint.sh"]

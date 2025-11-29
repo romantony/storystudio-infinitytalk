@@ -1,0 +1,14 @@
+{
+  "input": {
+    "input_type": "image",
+    "person_count": "single",
+    "prompt": "A person giving a motivational speech",
+    "image_url": "https://parentearn.com/test_user_123/test-project/assets/b56a0b37b41fcfc852219deff273c833_1764148926.png",
+    "wav_url": "https://parentearn.com/test_user_123/test-project/assets/30sec-Motivation_speech.mp3",
+    "width": 512,
+    "height": 512,
+    "max_frame": 150,
+    "use_r2_storage": true,
+    "network_volume": false
+  }
+}

@@ -78,8 +78,16 @@ class ComfyUIClient:
                 return prompt_id
                 
         except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8')
             logger.error(f"❌ HTTP error: {e.code} - {e.reason}")
-            logger.error(f"Response: {e.read().decode('utf-8')}")
+            logger.error(f"Response: {error_body}")
+            # Try to parse error details
+            try:
+                error_data = json.loads(error_body)
+                if "error" in error_data:
+                    logger.error(f"Error details: {json.dumps(error_data['error'], indent=2)}")
+            except:
+                pass
             return None
         except Exception as e:
             logger.error(f"❌ Failed to queue prompt: {e}")
@@ -171,26 +179,56 @@ class ComfyUIClient:
             logger.error("No history found")
             return {}
         
+        # Debug: Log the history structure
+        import json
+        logger.info(f"History structure: {json.dumps(history, indent=2, default=str)[:2000]}")
+        
+        # Check for errors in history
+        if "status" in history:
+            logger.info(f"Execution status: {history['status']}")
+        if "messages" in history:
+            logger.info(f"Execution messages: {history['messages']}")
+        
         output_files = {}
         
         for node_id in history.get("outputs", {}):
             node_output = history["outputs"][node_id]
             files = []
             
-            # Check for different output types
-            if "gifs" in node_output:
-                for item in node_output["gifs"]:
-                    if "fullpath" in item:
-                        files.append(item["fullpath"])
-            
-            if "images" in node_output:
-                for item in node_output["images"]:
-                    if "fullpath" in item:
-                        files.append(item["fullpath"])
+            # Check for different output types (gifs, images, videos)
+            # VHS nodes and other video nodes typically output to "videos"
+            for output_type in ["gifs", "images", "videos"]:
+                if output_type in node_output:
+                    logger.info(f"Node {node_id} has {output_type}: {len(node_output[output_type])} item(s)")
+                    for item in node_output[output_type]:
+                        # Check for fullpath first (some nodes)
+                        if "fullpath" in item:
+                            files.append(item["fullpath"])
+                        # Otherwise construct path from filename and subfolder
+                        elif "filename" in item:
+                            filename = item["filename"]
+                            subfolder = item.get("subfolder", "")
+                            item_type = item.get("type", output_type)
+                            
+                            # Construct the full path based on type
+                            if item_type == "output" or item_type == output_type:
+                                base_path = "/ComfyUI/output"
+                            elif item_type == "input":
+                                base_path = "/ComfyUI/input"
+                            else:
+                                base_path = "/ComfyUI/output"
+                            
+                            if subfolder:
+                                full_path = f"{base_path}/{subfolder}/{filename}"
+                            else:
+                                full_path = f"{base_path}/{filename}"
+                            
+                            files.append(full_path)
+                            logger.info(f"Constructed path: {full_path}")
             
             if files:
                 output_files[node_id] = files
-                logger.info(f"Node {node_id}: {len(files)} output file(s)")
+                logger.info(f"Node {node_id}: {len(files)} output file(s) found")
         
         return output_files
     

@@ -159,17 +159,32 @@ class InfiniteTalkHandler(BaseHandler):
         # Configure workflow nodes
         # Note: Node IDs are based on the workflow JSON structure
         
+        # Copy files to ComfyUI input directory and use just filenames
+        import shutil
+        import os
+        comfyui_input_dir = "/ComfyUI/input"
+        
+        # Copy and get media filename
+        media_filename = os.path.basename(media_path)
+        shutil.copy(media_path, os.path.join(comfyui_input_dir, media_filename))
+        
+        # Copy and get audio filename
+        wav_filename = os.path.basename(wav_path)
+        shutil.copy(wav_path, os.path.join(comfyui_input_dir, wav_filename))
+        
+        logger.info(f"Media filename: {media_filename}, Audio filename: {wav_filename}")
+        
         # Set media input (image or video)
         if input_type == "image":
             if "284" in workflow:  # Image loader node
-                workflow["284"]["inputs"]["image"] = media_path
+                workflow["284"]["inputs"]["image"] = media_filename
         else:
             if "228" in workflow:  # Video loader node
-                workflow["228"]["inputs"]["video"] = media_path
+                workflow["228"]["inputs"]["video"] = media_filename
         
         # Set audio input
         if "125" in workflow:  # Audio loader node
-            workflow["125"]["inputs"]["audio"] = wav_path
+            workflow["125"]["inputs"]["audio"] = wav_filename
         
         # Set prompt
         if "241" in workflow:  # Prompt node
@@ -185,14 +200,21 @@ class InfiniteTalkHandler(BaseHandler):
         if "270" in workflow:  # Max frames node
             workflow["270"]["inputs"]["value"] = max_frame
         
+        # Enable save_output for Video Combine node to generate output files
+        if "131" in workflow:  # VHS_VideoCombine node
+            workflow["131"]["inputs"]["save_output"] = True
+        
         # Set second audio for multi-person
         if person_count == "multi" and wav_path_2:
+            wav_filename_2 = os.path.basename(wav_path_2)
+            shutil.copy(wav_path_2, os.path.join(comfyui_input_dir, wav_filename_2))
+            
             if input_type == "image":
                 if "307" in workflow:  # Second audio node for I2V_multi
-                    workflow["307"]["inputs"]["audio"] = wav_path_2
+                    workflow["307"]["inputs"]["audio"] = wav_filename_2
             else:
                 if "313" in workflow:  # Second audio node for V2V_multi
-                    workflow["313"]["inputs"]["audio"] = wav_path_2
+                    workflow["313"]["inputs"]["audio"] = wav_filename_2
         
         return workflow
 
