@@ -154,6 +154,9 @@ RUN cd /ComfyUI/custom_nodes && \
     cd ComfyUI-WanVideoWrapper && \
     pip install --no-cache-dir -r requirements.txt
 
+# Fix transformers version AGAIN after WanVideoWrapper (its requirements.txt can overwrite it)
+RUN pip install --no-cache-dir --force-reinstall "transformers<4.44.0"
+
 # Download model weights
 RUN wget https://huggingface.co/Kijai/WanVideo_comfy_GGUF/resolve/main/InfiniteTalk/Wan2_1-InfiniteTalk_Single_Q8.gguf \
     -O /ComfyUI/models/diffusion_models/Wan2_1-InfiniteTalk_Single_Q8.gguf
