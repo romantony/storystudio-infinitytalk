@@ -1,14 +1,139 @@
-# Build and Push Docker Image from RunPod (Build from Scratch)
+# Build and Push Docker Image from Cloud (Build from Scratch)
 
 ## Overview
-Build your InfiniteTalk Docker image directly on a RunPod instance and push to Docker Hub. This avoids transferring the 102GB image and leverages RunPod's fast network.
+Build your InfiniteTalk Docker image on a cloud instance and push to Docker Hub. This avoids transferring the 40GB image and leverages cloud providers' fast network.
+
+**Recommended: AWS EC2** (Full Docker support, no restrictions)  
+**Alternative: RunPod** (Cheaper but Docker needs workarounds)
 
 **Time Required:** 1.5-2 hours  
-**Cost:** ~$0.80-$1.00 (2-2.5 hours × $0.40/hr)
+**Cost:** 
+- **EC2 g5.xlarge:** ~$2.00 (2 hours × $1.01/hr)
+- **RunPod RTX 3090:** ~$0.80 (2 hours × $0.40/hr)
 
 ---
 
-## Step 1: Deploy RunPod Instance
+## Option A: AWS EC2 (Recommended)
+
+### Step 1: Launch EC2 Instance
+
+#### 1.1 Go to EC2 Console
+Visit: https://console.aws.amazon.com/ec2/
+
+#### 1.2 Launch Instance
+- Click **"Launch Instance"**
+- Name: `docker-build-infinitetalk`
+
+#### 1.3 Choose AMI
+- **Deep Learning Base OSS Nvidia Driver GPU AMI (Ubuntu 22.04)**
+- Has Docker, NVIDIA drivers pre-installed
+
+#### 1.4 Choose Instance Type
+- **g5.xlarge** (24GB GPU, 4 vCPU, 16GB RAM) - $1.01/hr ✅
+- Or **g4dn.xlarge** (16GB GPU) - $0.53/hr (slower)
+
+#### 1.5 Key Pair
+- Create new or use existing key pair for SSH access
+- Download `.pem` file if creating new
+
+#### 1.6 Storage
+- **200 GB gp3** (need space for 40GB image)
+
+#### 1.7 Security Group
+- Allow **SSH (22)** from your IP
+- Allow **HTTP (80)** and **HTTPS (443)** for Docker Hub
+
+#### 1.8 Launch
+- Click **"Launch Instance"**
+- Wait 2-3 minutes for status: Running
+
+### Step 2: Connect via SSH
+
+#### 2.1 Get Public IP
+From EC2 Console → Instances → Select your instance → Copy **Public IPv4 address**
+
+#### 2.2 Connect
+
+**Windows (PowerShell):**
+```powershell
+ssh -i "your-key.pem" ubuntu@<EC2-PUBLIC-IP>
+```
+
+**Linux/Mac:**
+```bash
+chmod 400 your-key.pem
+ssh -i "your-key.pem" ubuntu@<EC2-PUBLIC-IP>
+```
+
+### Step 3: Prepare Build Environment
+
+```bash
+# Update system
+sudo apt-get update
+
+# Verify Docker is installed
+docker --version
+# Should show: Docker version 20.x or higher
+
+# Verify GPU is accessible
+nvidia-smi
+# Should show your GPU (A10G on g5.xlarge)
+
+# Check disk space
+df -h /
+# Should have ~190GB available
+```
+
+### Step 4: Clone Repository
+
+```bash
+# Clone your repository
+cd ~
+git clone https://github.com/romantony/storystudio-infinitytalk.git
+cd storystudio-infinitytalk
+```
+
+### Step 5: Build Image (Single Combined Build)
+
+```bash
+# Build using the root Dockerfile (combined approach - simpler!)
+docker build -t romantony/storystudio-infinitetalk:latest .
+```
+
+**Build time:** 60-90 minutes  
+**Progress shows:** CUDA install → PyTorch → ComfyUI → Model downloads
+
+### Step 6: Push to Docker Hub
+
+```bash
+# Login
+docker login
+# Username: romantony
+# Password: <your-docker-hub-token>
+
+# Push
+docker push romantony/storystudio-infinitetalk:latest
+```
+
+**Push time:** 20-30 minutes from EC2
+
+### Step 7: Clean Up
+
+```bash
+# Exit SSH
+exit
+```
+
+**In EC2 Console:**
+- Select instance → **Actions** → **Instance State** → **Terminate**
+
+**✅ Don't forget to terminate to stop charges!**
+
+---
+
+## Option B: RunPod Instance
+
+### Step 1: Deploy RunPod Instance
 
 ### 1.1 Go to RunPod Console
 Visit: https://www.runpod.io/console/pods
@@ -24,11 +149,11 @@ Any GPU works for building:
 - **RTX 4070** - $0.35/hr
 
 ### 1.4 Choose Template
-- Select **"RunPod Pytorch"** or **"RunPod Ubuntu"**
-- Both include Docker pre-installed
+- Select **"RunPod Pytorch"** template
+- Has Docker pre-installed
 
 ### 1.5 Configure Storage
-- **Container Disk:** 150GB (need space for building 102GB image)
+- **Container Disk:** 200GB (need space for building 40GB image)
 - **Volume:** Not needed
 
 ### 1.6 Expose SSH
@@ -40,7 +165,7 @@ Any GPU works for building:
 
 ---
 
-## Step 2: Connect via SSH
+### Step 2: Connect via SSH (RunPod)
 
 ### 2.1 Get Connection Command
 In RunPod dashboard:
@@ -67,7 +192,7 @@ Type `yes` when prompted to accept the fingerprint.
 
 ---
 
-## Step 3: Prepare Build Environment
+### Step 3: Prepare Build Environment (RunPod)
 
 Once connected to RunPod:
 
@@ -75,24 +200,26 @@ Once connected to RunPod:
 # Update system
 apt-get update
 
-# Install required tools
-apt-get install -y git docker.io wget curl
+# Install required tools (if not already installed)
+apt-get install -y git wget curl
 
-# Start Docker service (if not running)
-service docker start
+# Start Docker with iptables disabled (RunPod workaround)
+pkill dockerd 2>/dev/null
+dockerd --iptables=false --ip-masq=false > /tmp/dockerd.log 2>&1 &
+sleep 10
 
-# Verify Docker
-docker --version
-# Should show: Docker version 24.x.x or similar
+# Verify Docker is working
+docker info
+# Should show Docker daemon info without errors
 
 # Check available disk space
 df -h /
-# Should have ~140GB available
+# Should have ~190GB available
 ```
 
 ---
 
-## Step 4: Clone Your Repository
+### Step 4: Clone Repository (RunPod)
 
 ```bash
 # Navigate to workspace
@@ -106,126 +233,66 @@ cd storystudio-infinitytalk
 
 # Verify files
 ls -la
-# Should see: base/, models/, docker-compose.yml, etc.
+# Should see: Dockerfile, base/, models/, etc.
 ```
 
 ---
 
-## Step 5: Build Base Image
+### Step 5: Build Image (RunPod - Use Combined Build)
 
 ```bash
-# Build the base image
-docker build -t storystudio/base:latest -f base/Dockerfile.base .
+# Build using root Dockerfile (simpler, no two-stage complexity)
+docker build -t romantony/storystudio-infinitetalk:latest .
 ```
 
-**Expected build time:** 20-30 minutes
-
-**Build progress will show:**
-```
-[1/15] FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04
-[2/15] RUN apt-get update && apt-get install -y ...
-[3/15] RUN wget https://www.python.org/ftp/python/3.12.3/...
-...
-[15/15] RUN pip install torch==2.9.1 torchvision==0.24.1 ...
-```
-
-**✅ Success looks like:**
-```
-Successfully built abc123def456
-Successfully tagged storystudio/base:latest
-```
-
-**Verify base image:**
-```bash
-docker images storystudio/base
-```
+**Expected build time:** 60-90 minutes  
+**Downloads:** 23GB of model weights
 
 ---
 
-## Step 6: Build InfiniteTalk Image
-
-```bash
-# Build InfiniteTalk with all models
-docker build -t storystudio/infinitetalk:latest -f models/infinitetalk/Dockerfile models/infinitetalk
-```
-
-**Expected build time:** 40-60 minutes
-
-**Build progress will show:**
-```
-[1/22] FROM storystudio/base:latest
-[2/22] RUN apt-get update && apt-get install -y ...
-[3/22] RUN cd /ComfyUI/custom_nodes && git clone ...
-...
-[10/22] RUN wget https://huggingface.co/.../wan2.1-i2v-14b-480p-Q8_0.gguf ...
-[11/22] RUN wget https://huggingface.co/.../umt5-xxl-fp16.safetensors ...
-...
-[22/22] CMD ["python", "-u", "handler.py"]
-```
-
-**✅ Success looks like:**
-```
-Successfully built xyz789abc123
-Successfully tagged storystudio/infinitetalk:latest
-```
-
-**Verify final image:**
-```bash
-docker images storystudio/infinitetalk
-
-# Check size (should be ~102GB)
-```
-
----
-
-## Step 7: Login to Docker Hub
+### Step 6: Push to Docker Hub (RunPod)
 
 ```bash
 # Login to Docker Hub
 docker login
-
-# Enter your credentials:
 # Username: romantony
-# Password: (your Docker Hub password or access token)
+# Password: <your-docker-hub-token>
+
+# Push image
+docker push romantony/storystudio-infinitetalk:latest
 ```
 
-**✅ Success looks like:**
-```
-Login Succeeded
-```
+**Push time:** 20-40 minutes from RunPod
 
 ---
 
-## Step 8: Tag and Push to Docker Hub
+### Step 7: Clean Up (RunPod)
 
 ```bash
-# Tag the image with your Docker Hub username
-docker tag storystudio/infinitetalk:latest romantony/storystudio-infinitetalk:latest
-docker tag storystudio/infinitetalk:latest romantony/storystudio-infinitetalk:v1.0
-
-# Push to Docker Hub (FAST from RunPod - 20-40 minutes)
-docker push romantony/storystudio-infinitetalk:latest
-docker push romantony/storystudio-infinitetalk:v1.0
+# Exit SSH
+exit
 ```
 
-**Push progress:**
-```
-The push refers to repository [docker.io/romantony/storystudio-infinitetalk]
-bb765a456f0e: Pushing [========>                          ] 3.2GB/17.6GB
-89507e62875d: Pushing [=====>                             ] 1.5GB/8.91GB
-39666a7c8c60: Pushing [===========>                       ] 1.2GB/2.59GB
-...
-```
-
-**✅ Success looks like:**
-```
-latest: digest: sha256:abc123def456... size: 15234
-v1.0: digest: sha256:abc123def456... size: 15234
-```
+**In RunPod Dashboard:**
+- Terminate pod to stop charges
 
 ---
 
-## Step 9: Verify Push Succeeded
+## Comparison: EC2 vs RunPod
+
+| Feature | AWS EC2 | RunPod |
+|---------|---------|--------|
+| **Cost** | $2.00 (2hr) | $0.80 (2hr) |
+| **Docker** | ✅ Full support | ⚠️ Needs workarounds |
+| **Network** | Fast (AWS) | Very fast |
+| **Setup** | Simple | Moderate |
+| **Best for** | Production builds | Budget builds |
+
+**Recommendation:** Use **EC2** for reliability, **RunPod** for cost savings.
+
+---
+
+## Step 8: Verify Push Succeeded
 
 ```bash
 # Check the manifest exists
@@ -253,37 +320,23 @@ https://hub.docker.com/r/romantony/storystudio-infinitetalk/tags
 
 ---
 
-## Step 10: Clean Up and Terminate Pod
-
-```bash
-# Optional: Clean up to free space
-docker system prune -a
-
-# Exit SSH
-exit
-```
-
-**In RunPod Dashboard:**
-1. Go to https://www.runpod.io/console/pods
-2. Click on your pod
-3. Click **"Terminate"** button
-4. Confirm termination
-
-**✅ Don't forget this step to avoid ongoing charges!**
-
----
-
 ## Time and Cost Breakdown
 
-| Step | Time | Notes |
-|------|------|-------|
-| Deploy Pod | 2 min | Instance startup |
-| Install Tools | 5 min | Git, Docker setup |
-| Clone Repo | 2 min | Small repository |
-| Build Base | 25 min | PyTorch installation |
-| Build InfiniteTalk | 50 min | Model downloads |
-| Push to Docker Hub | 30 min | Fast upload |
-| **Total** | **~2 hours** | **$0.80 @ $0.40/hr** |
+### EC2 g5.xlarge
+| Step | Time | Cost |
+|------|------|------|
+| Launch + Setup | 5 min | $0.08 |
+| Build Image | 75 min | $1.26 |
+| Push to Hub | 25 min | $0.42 |
+| **Total** | **105 min** | **~$1.76** |
+
+### RunPod RTX 3090
+| Step | Time | Cost |
+|------|------|------|
+| Deploy + Setup | 10 min | $0.07 |
+| Build Image | 75 min | $0.50 |
+| Push to Hub | 30 min | $0.20 |
+| **Total** | **115 min** | **~$0.77** |
 
 ---
 
@@ -320,10 +373,12 @@ docker build -t storystudio/infinitetalk:latest -f models/infinitetalk/Dockerfil
 ping 8.8.8.8
 
 # Check Docker daemon
-service docker status
+docker info
 
 # Restart Docker if needed
-service docker restart
+pkill dockerd
+dockerd > /dev/null 2>&1 &
+sleep 5
 docker login
 docker push romantony/storystudio-infinitetalk:latest
 ```
@@ -385,32 +440,31 @@ print(response.json())
 
 ---
 
-## Quick Command Reference Sheet
+## Quick Command Reference
 
-Save this for quick copy-paste:
-
+### EC2 (Recommended)
 ```bash
-# On RunPod Instance
+# On EC2 instance
+git clone https://github.com/romantony/storystudio-infinitytalk.git
+cd storystudio-infinitytalk
+docker build -t romantony/storystudio-infinitetalk:latest .
+docker login
+docker push romantony/storystudio-infinitetalk:latest
+# Then terminate EC2 instance
+```
+
+### RunPod (Budget)
+```bash
+# On RunPod instance
+pkill dockerd; dockerd --iptables=false > /tmp/dockerd.log 2>&1 &
+sleep 10
 cd /workspace
 git clone https://github.com/romantony/storystudio-infinitytalk.git
 cd storystudio-infinitytalk
-
-# Build images
-docker build -t storystudio/base:latest -f base/Dockerfile.base .
-docker build -t storystudio/infinitetalk:latest -f models/infinitetalk/Dockerfile models/infinitetalk
-
-# Tag and push
+docker build -t romantony/storystudio-infinitetalk:latest .
 docker login
-docker tag storystudio/infinitetalk:latest romantony/storystudio-infinitetalk:latest
-docker tag storystudio/infinitetalk:latest romantony/storystudio-infinitetalk:v1.0
 docker push romantony/storystudio-infinitetalk:latest
-docker push romantony/storystudio-infinitetalk:v1.0
-
-# Verify
-docker manifest inspect romantony/storystudio-infinitetalk:latest
-
-# Clean up (in RunPod dashboard)
-# Terminate pod to stop charges
+# Then terminate RunPod pod
 ```
 
 ---
