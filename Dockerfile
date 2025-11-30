@@ -98,9 +98,10 @@ RUN pip install --no-cache-dir --force-reinstall \
 
 # Install transformers 4.48.2 and sageattention (both require PyTorch to be present)
 # Reference repo (wlsdml1114/Infinitetalk_Runpod_hub) uses transformers 4.48.2 successfully
-# sageattention required by WanVideoWrapper for sageattn attention mode (uses --no-build-isolation to access installed torch)
+# sageattention required by WanVideoWrapper for sageattn attention mode
+# Set TORCH_CUDA_ARCH_LIST for common GPU architectures (8.0=A100, 8.6=RTX3090, 8.9=RTX4090, 9.0=H100)
 RUN pip install --no-cache-dir --force-reinstall transformers==4.48.2 && \
-    pip install --no-cache-dir --no-build-isolation sageattention
+    TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9;9.0" pip install --no-cache-dir --no-build-isolation sageattention
 
 # Create necessary directories
 RUN mkdir -p \
