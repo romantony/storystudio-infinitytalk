@@ -100,6 +100,9 @@ RUN pip install --no-cache-dir --force-reinstall \
 # Reference repo (wlsdml1114/Infinitetalk_Runpod_hub) uses this version successfully
 RUN pip install --no-cache-dir --force-reinstall transformers==4.48.2
 
+# Install sageattention - required by WanVideoWrapper for sageattn attention mode
+RUN pip install --no-cache-dir sageattention
+
 # Create necessary directories
 RUN mkdir -p \
     /ComfyUI/models/checkpoints \
