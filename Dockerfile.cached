@@ -1,0 +1,144 @@
+# Dockerfile.cached - Optimized build using local cache
+# Build with: docker build -f Dockerfile.cached --build-context cache=/home/ubuntu/docker_build_cache -t romantony/storystudio-infinitetalk:v1.8 .
+
+FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+
+# Install system dependencies
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3-pip \
+    git \
+    wget \
+    curl \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.10 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Install NumPy 1.x first (required for compatibility)
+RUN pip install --no-cache-dir "numpy<2.0.0"
+
+# Install common Python packages
+RUN pip install --no-cache-dir \
+    opencv-python \
+    pillow \
+    scipy \
+    tqdm \
+    safetensors \
+    sentencepiece \
+    transformers \
+    accelerate \
+    pydub \
+    requests \
+    websocket-client \
+    boto3 \
+    librosa \
+    soundfile \
+    runpod
+
+# Copy and install ComfyUI from cache
+WORKDIR /
+COPY --from=cache repos/ComfyUI /ComfyUI
+RUN cd /ComfyUI && pip install --no-cache-dir -r requirements.txt
+
+# Install PyTorch 2.5.1 AFTER ComfyUI (required for torch.nn.RMSNorm and secure torch.load)
+# This MUST be after ComfyUI requirements to prevent it from being overwritten
+RUN pip install --no-cache-dir --force-reinstall \
+    torch==2.5.1 \
+    torchvision==0.20.1 \
+    torchaudio==2.5.1 \
+    --index-url https://download.pytorch.org/whl/cu121
+
+# Create necessary directories
+RUN mkdir -p \
+    /ComfyUI/models/checkpoints \
+    /ComfyUI/models/vae \
+    /ComfyUI/models/loras \
+    /ComfyUI/models/embeddings \
+    /ComfyUI/models/upscale_models \
+    /ComfyUI/models/clip \
+    /ComfyUI/models/clip_vision \
+    /ComfyUI/models/diffusion_models \
+    /ComfyUI/models/text_encoders \
+    /ComfyUI/custom_nodes \
+    /ComfyUI/input \
+    /ComfyUI/output
+
+# Copy custom nodes from cache
+COPY --from=cache repos/ComfyUI-Manager /ComfyUI/custom_nodes/ComfyUI-Manager
+COPY --from=cache repos/ComfyUI-GGUF /ComfyUI/custom_nodes/ComfyUI-GGUF
+COPY --from=cache repos/ComfyUI-KJNodes /ComfyUI/custom_nodes/ComfyUI-KJNodes
+COPY --from=cache repos/ComfyUI-VideoHelperSuite /ComfyUI/custom_nodes/ComfyUI-VideoHelperSuite
+COPY --from=cache repos/ComfyUI-wanBlockswap /ComfyUI/custom_nodes/ComfyUI-wanBlockswap
+COPY --from=cache repos/ComfyUI-MelBandRoFormer /ComfyUI/custom_nodes/ComfyUI-MelBandRoFormer
+COPY --from=cache repos/ComfyUI-WanVideoWrapper /ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper
+
+# Install custom node requirements
+RUN cd /ComfyUI/custom_nodes/ComfyUI-GGUF && \
+    pip install --no-cache-dir -r requirements.txt || true
+
+RUN cd /ComfyUI/custom_nodes/ComfyUI-KJNodes && \
+    pip install --no-cache-dir -r requirements.txt || true
+
+RUN cd /ComfyUI/custom_nodes/ComfyUI-VideoHelperSuite && \
+    pip install --no-cache-dir -r requirements.txt || true
+
+RUN cd /ComfyUI/custom_nodes/ComfyUI-MelBandRoFormer && \
+    pip install --no-cache-dir -r requirements.txt || true
+
+RUN cd /ComfyUI/custom_nodes/ComfyUI-WanVideoWrapper && \
+    pip install --no-cache-dir -r requirements.txt || true
+
+# Create model directories for InfiniteTalk
+RUN mkdir -p \
+    /root/.cache/huggingface/hub/models--wanpang--Wan2_1_InfiniteTalk_Single/snapshots/main \
+    /root/.cache/huggingface/hub/models--wanpang--wan2.1-i2v-14b-480p/snapshots/main \
+    /root/.cache/huggingface/hub/models--TencentGameMate--chinese-wav2vec2-base \
+    /root/.cache/huggingface/hub/models--TencentGameMate--t5-small-chinese-en \
+    /root/.cache/huggingface/hub/models--wanpang--chinese-clip-vit-large-patch14-336px
+
+# Download models (these will still need to download as they're too large to cache effectively)
+RUN cd /root/.cache/huggingface/hub/models--wanpang--Wan2_1_InfiniteTalk_Single/snapshots/main && \
+    wget -q https://huggingface.co/wanpang/Wan2_1_InfiniteTalk_Single/resolve/main/Wan2_1-InfiniteTalk_Single_Q8.gguf
+
+RUN cd /root/.cache/huggingface/hub/models--wanpang--wan2.1-i2v-14b-480p/snapshots/main && \
+    wget -q https://huggingface.co/wanpang/wan2.1-i2v-14b-480p/resolve/main/wan2.1-i2v-14b-480p-Q8_0.gguf
+
+RUN cd /root/.cache/huggingface/hub/models--TencentGameMate--chinese-wav2vec2-base && \
+    git clone --depth=1 https://huggingface.co/TencentGameMate/chinese-wav2vec2-base . || true
+
+RUN cd /root/.cache/huggingface/hub/models--TencentGameMate--t5-small-chinese-en && \
+    git clone --depth=1 https://huggingface.co/TencentGameMate/t5-small-chinese-en . || true
+
+RUN cd /root/.cache/huggingface/hub/models--wanpang--chinese-clip-vit-large-patch14-336px && \
+    git clone --depth=1 https://huggingface.co/wanpang/chinese-clip-vit-large-patch14-336px . || true
+
+# Copy application code
+COPY base /base
+COPY handler.py /handler.py
+
+# Copy workflows
+RUN mkdir -p /workflows
+COPY models/infinitetalk/workflows/*.json /workflows/
+
+# Set working directory
+WORKDIR /ComfyUI
+
+# Make entrypoint executable
+RUN chmod +x /base/entrypoint.sh
+
+# Expose ComfyUI port
+EXPOSE 8188
+
+# Set entrypoint
+ENTRYPOINT ["/base/entrypoint.sh"]
