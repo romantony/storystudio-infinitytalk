@@ -87,13 +87,13 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd /ComfyUI && \
     pip install --no-cache-dir -r requirements.txt
 
-# Install PyTorch 2.4.0+ AFTER ComfyUI (required for torch.nn.RMSNorm used by WanVideoWrapper)
+# Install PyTorch 2.6.0+ AFTER ComfyUI (required for torch.nn.RMSNorm and secure torch.load)
 # This MUST be after ComfyUI requirements to prevent it from being overwritten
+# PyTorch 2.6+ required due to CVE-2025-32434 vulnerability in torch.load
 RUN pip install --no-cache-dir --force-reinstall \
-    torch==2.4.0 \
-    torchvision==0.19.0 \
-    torchaudio==2.4.0 \
-    xformers==0.0.27.post2 \
+    torch==2.6.0 \
+    torchvision==0.21.0 \
+    torchaudio==2.6.0 \
     --index-url https://download.pytorch.org/whl/cu121
 
 # Create necessary directories
