@@ -96,10 +96,9 @@ RUN pip install --no-cache-dir --force-reinstall \
     torchaudio==2.5.1 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# Downgrade transformers to version that doesn't require PyTorch 2.6+
-# transformers 4.46+ requires PyTorch 2.6 for torch.load security fix (CVE-2025-32434)
-# Using 4.45.2 which works with PyTorch 2.5.1
-RUN pip install --no-cache-dir --force-reinstall transformers==4.45.2
+# Install transformers 4.48.2 (matching reference implementation)
+# Reference repo (wlsdml1114/Infinitetalk_Runpod_hub) uses this version successfully
+RUN pip install --no-cache-dir --force-reinstall transformers==4.48.2
 
 # Create necessary directories
 RUN mkdir -p \
