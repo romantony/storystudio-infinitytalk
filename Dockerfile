@@ -63,14 +63,6 @@ RUN python -m pip install --upgrade pip
 # Install NumPy 1.x first (required for compatibility)
 RUN pip install --no-cache-dir "numpy<2.0.0"
 
-# Install PyTorch 2.4.0+ (required for torch.nn.RMSNorm used by WanVideoWrapper)
-RUN pip install --no-cache-dir \
-    torch==2.4.0 \
-    torchvision==0.19.0 \
-    torchaudio==2.4.0 \
-    xformers==0.0.27.post2 \
-    --index-url https://download.pytorch.org/whl/cu121
-
 # Install common Python packages
 RUN pip install --no-cache-dir \
     opencv-python-headless \
@@ -94,6 +86,15 @@ WORKDIR /
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd /ComfyUI && \
     pip install --no-cache-dir -r requirements.txt
+
+# Install PyTorch 2.4.0+ AFTER ComfyUI (required for torch.nn.RMSNorm used by WanVideoWrapper)
+# This MUST be after ComfyUI requirements to prevent it from being overwritten
+RUN pip install --no-cache-dir --force-reinstall \
+    torch==2.4.0 \
+    torchvision==0.19.0 \
+    torchaudio==2.4.0 \
+    xformers==0.0.27.post2 \
+    --index-url https://download.pytorch.org/whl/cu121
 
 # Create necessary directories
 RUN mkdir -p \
