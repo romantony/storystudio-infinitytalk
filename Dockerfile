@@ -1,7 +1,8 @@
 # Combined Dockerfile for InfiniteTalk RunPod Serverless
 # This builds everything in one stage for easier deployment
+# Using CUDA 12.4+ required for Ada Lovelace (8.9) compute capability with sageattention
 
-FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
 
 # Metadata
 LABEL maintainer="StoryStudio Team"
@@ -89,12 +90,12 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
 
 # Install PyTorch 2.5.1 AFTER ComfyUI (required for torch.nn.RMSNorm and secure torch.load)
 # This MUST be after ComfyUI requirements to prevent it from being overwritten
-# Using latest available PyTorch for CUDA 12.1 (2.5.1) - 2.6.0 not yet released for CUDA 12.1
+# Using PyTorch with CUDA 12.4 support (required for Ada Lovelace compute capability 8.9)
 RUN pip install --no-cache-dir --force-reinstall \
     torch==2.5.1 \
     torchvision==0.20.1 \
     torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu121
+    --index-url https://download.pytorch.org/whl/cu124
 
 # Install transformers 4.48.2 and sageattention (both require PyTorch to be present)
 # Reference repo (wlsdml1114/Infinitetalk_Runpod_hub) uses transformers 4.48.2 successfully
