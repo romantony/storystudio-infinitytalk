@@ -60,15 +60,15 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 &
 # Upgrade pip
 RUN python -m pip install --upgrade pip
 
-# Install NumPy 1.x first (required for PyTorch compatibility)
+# Install NumPy 1.x first (required for compatibility)
 RUN pip install --no-cache-dir "numpy<2.0.0"
 
-# Install PyTorch and common ML libraries
+# Install PyTorch 2.4.0+ (required for torch.nn.RMSNorm used by WanVideoWrapper)
 RUN pip install --no-cache-dir \
-    torch==2.1.2 \
-    torchvision==0.16.2 \
-    torchaudio==2.1.2 \
-    xformers==0.0.23.post1 \
+    torch==2.4.0 \
+    torchvision==0.19.0 \
+    torchaudio==2.4.0 \
+    xformers==0.0.27.post2 \
     --index-url https://download.pytorch.org/whl/cu121
 
 # Install common Python packages
@@ -94,9 +94,6 @@ WORKDIR /
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git && \
     cd /ComfyUI && \
     pip install --no-cache-dir -r requirements.txt
-
-# Pin transformers to compatible version with PyTorch 2.1.2 (AFTER ComfyUI requirements)
-RUN pip install --no-cache-dir --force-reinstall "transformers<4.44.0"
 
 # Create necessary directories
 RUN mkdir -p \
@@ -154,9 +151,6 @@ RUN cd /ComfyUI/custom_nodes && \
     cd ComfyUI-WanVideoWrapper && \
     pip install --no-cache-dir -r requirements.txt
 
-# Fix transformers version AGAIN after WanVideoWrapper (its requirements.txt can overwrite it)
-RUN pip install --no-cache-dir --force-reinstall "transformers<4.44.0"
-
 # Create model directories if they don't exist
 RUN mkdir -p /ComfyUI/models/diffusion_models /ComfyUI/models/loras /ComfyUI/models/vae \
     /ComfyUI/models/text_encoders /ComfyUI/models/clip_vision
@@ -185,9 +179,6 @@ RUN wget https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/mai
 
 RUN wget https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBandRoformer_fp16.safetensors \
     -O /ComfyUI/models/diffusion_models/MelBandRoformer_fp16.safetensors
-
-# Force NumPy 1.x after all installations (CRITICAL for PyTorch 2.1.2 compatibility)
-RUN pip install --force-reinstall --no-cache-dir "numpy<2.0.0"
 
 # Copy workflow files
 COPY models/infinitetalk/workflows/ /workflows/
