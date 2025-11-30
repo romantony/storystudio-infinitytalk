@@ -96,12 +96,11 @@ RUN pip install --no-cache-dir --force-reinstall \
     torchaudio==2.5.1 \
     --index-url https://download.pytorch.org/whl/cu121
 
-# Install transformers 4.48.2 (matching reference implementation)
-# Reference repo (wlsdml1114/Infinitetalk_Runpod_hub) uses this version successfully
-RUN pip install --no-cache-dir --force-reinstall transformers==4.48.2
-
-# Install sageattention - required by WanVideoWrapper for sageattn attention mode
-RUN pip install --no-cache-dir sageattention
+# Install transformers 4.48.2 and sageattention (both require PyTorch to be present)
+# Reference repo (wlsdml1114/Infinitetalk_Runpod_hub) uses transformers 4.48.2 successfully
+# sageattention required by WanVideoWrapper for sageattn attention mode
+RUN pip install --no-cache-dir --force-reinstall transformers==4.48.2 && \
+    pip install --no-cache-dir sageattention
 
 # Create necessary directories
 RUN mkdir -p \
