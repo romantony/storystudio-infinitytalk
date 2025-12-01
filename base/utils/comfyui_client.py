@@ -161,6 +161,21 @@ class ComfyUIClient:
                         
         except Exception as e:
             logger.error(f"❌ Error waiting for completion: {e}")
+            # Try to read ComfyUI log for more details
+            try:
+                import os
+                if os.path.exists('/var/log/comfyui.log'):
+                    with open('/var/log/comfyui.log', 'r') as f:
+                        lines = f.readlines()
+                        # Get last 50 lines
+                        recent_logs = lines[-50:] if len(lines) > 50 else lines
+                        error_lines = [line for line in recent_logs if any(word in line.lower() for word in ['error', 'exception', 'traceback', 'failed'])]
+                        if error_lines:
+                            logger.error("Recent ComfyUI errors:")
+                            for line in error_lines[-10:]:  # Last 10 error lines
+                                logger.error(f"  {line.strip()}")
+            except Exception as log_err:
+                logger.debug(f"Could not read ComfyUI log: {log_err}")
             return False
     
     def get_output_files(self, prompt_id: str) -> Dict[str, list]:
