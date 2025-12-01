@@ -189,7 +189,7 @@ RUN wget https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/mai
 RUN wget https://huggingface.co/Kijai/MelBandRoFormer_comfy/resolve/main/MelBandRoformer_fp16.safetensors \
     -O /ComfyUI/models/diffusion_models/MelBandRoformer_fp16.safetensors
 
-# Copy workflow files
+# Copy workflow files (v1.11 - bf16 precision fix)
 COPY models/infinitetalk/workflows/ /workflows/
 
 # Copy handler
