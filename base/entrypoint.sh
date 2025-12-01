@@ -74,5 +74,8 @@ echo "========================================"
 echo "Starting RunPod Handler..."
 echo "========================================"
 
+# Tail ComfyUI logs in the background so we can see errors
+tail -f /var/log/comfyui.log | grep -i "error\|exception\|traceback\|failed\|warning" &
+
 # Start the handler (this becomes the main process)
 exec python /handler.py
